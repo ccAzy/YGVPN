@@ -88,9 +88,22 @@ if $SKIP_BBR; then
     warn "跳过 BBR"
 else
     step 2 "BBR 加速"
-    printf "11\n1\n" | sb 2>&1 | tail -3
-    BBR=$(sysctl net.ipv4.tcp_congestion_control 2>/dev/null | awk -F'= ' '{print $2}')
-    [[ "$BBR" == *bbr* ]] && ok "BBR 已启用: $BBR" || warn "BBR: $BBR (可能需重启)"
+    # 先检查内核是否已支持 BBR（Ubuntu 22.04+ 默认支持）
+    if modprobe tcp_bbr 2>/dev/null; then
+        # 内核支持，直接 sysctl 开启（秒级）
+        grep -q "net.core.default_qdisc=fq" /etc/sysctl.conf 2>/dev/null || echo "net.core.default_qdisc=fq" >> /etc/sysctl.conf
+        grep -q "net.ipv4.tcp_congestion_control=bbr" /etc/sysctl.conf 2>/dev/null || echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.conf
+        sysctl -p > /dev/null 2>&1
+        BBR=$(sysctl net.ipv4.tcp_congestion_control 2>/dev/null | awk -F"= " "{print $2}")
+        [[ "$BBR" == *bbr* ]] && ok "BBR 已启用: $BBR (sysctl)" || warn "BBR: $BBR"
+    else
+        # 旧内核不支持，走 sb 脚本安装新内核（较慢，需重启）
+        warn "内核不支持 BBR，使用 sb 安装新内核..."
+        printf "11
+1
+" | sb 2>&1 | tail -3
+        warn "内核安装完成，请 reboot 后生效"
+    fi
 fi
 
 # ────────────────────────────────────────────────────────────────

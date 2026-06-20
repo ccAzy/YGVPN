@@ -131,18 +131,23 @@ class Deployer:
         print(f"\n-- Step 1: Install sing-box --")
         print("   downloading + installing (~60-120s)...")
         _, stdout, stderr = self.client.exec_command(cmd, timeout=300)
-        exit_code = stdout.channel.recv_exit_status()
-        print(f"   [exit={exit_code}]")
-
-        _, ec = self.run("test -x /usr/bin/sb && echo 'OK' || echo 'FAIL'")
-        if ec == 0:
-            print("   [OK] sb command ready")
-            return True
-        else:
-            print("   [FAIL] sb install failed")
-            return False
-
     def step_bbr(self):
+        step_m("2", "BBR acceleration")
+        # Try fast sysctl first (Ubuntu 22.04+ has BBR built-in)
+        _, ec = self.run("modprobe tcp_bbr 2>/dev/null && echo OK", show=False)
+        if ec == 0:
+            self.run("grep -q net.core.default_qdisc=fq /etc/sysctl.conf 2>/dev/null || echo net.core.default_qdisc=fq >> /etc/sysctl.conf; grep -q net.ipv4.tcp_congestion_control=bbr /etc/sysctl.conf 2>/dev/null || echo net.ipv4.tcp_congestion_control=bbr >> /etc/sysctl.conf; sysctl -p > /dev/null 2>&1", show=False)
+            _, stdout, _ = self.client.exec_command("sysctl net.ipv4.tcp_congestion_control")
+            bbr = stdout.read().decode().strip()
+            ok_m(f"BBR: {bbr} (sysctl)")
+            return True
+        # Fallback: sb kernel install (slow)
+        warn_m("Kernel lacks BBR, installing via sb...")
+        cmd = "export TERM=xterm-256color; printf \"11\n1\n\" | sb"
+        _, stdout, stderr = self.client.exec_command(cmd, timeout=300)
+        stdout.channel.recv_exit_status()
+        warn_m("Kernel installed, reboot required")
+        return True
         cmd = 'export TERM=xterm-256color; printf "11\\n1\\n" | sb'
         print(f"\n-- Step 2: BBR --")
         _, stdout, stderr = self.client.exec_command(cmd, timeout=120)
