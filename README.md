@@ -5,6 +5,7 @@
 
 <h1 align="center">YGVPN</h1>
 <p align="center"><strong>sing-box 一键部署 · 7 种节点 · Argo 隧道 · 域名分流</strong></p>
+  🎖️ 基于甬哥 [yonggekkk/sing-box-yg](https://github.com/yonggekkk/sing-box-yg) 二次开发，特此感谢！
 <p align="center">一行命令，3 分钟，全自动。</p>
 
 ---
@@ -212,17 +213,32 @@ Ubuntu 22.04 / Debian 11+。CentOS 未测试。
 
 **Q: YGVPN 和 sing-box 是什么关系？**
 
-YGVPN 是基于 [ccAzy/sing-box-yg](https://github.com/ccAzy/sing-box-yg) 的全自动部署器——
+**Q: YGVPN 和 sing-box 是什么关系？**
+
+
+YGVPN 是基于甬哥 [yonggekkk/sing-box-yg](https://github.com/yonggekkk/sing-box-yg) 的二次开发项目：
+
+
 
 | 项目 | 角色 |
+
 |------|------|
+
 | [sing-box](https://github.com/SagerNet/sing-box) | 核心代理引擎 |
-| [sing-box-yg](https://github.com/ccAzy/sing-box-yg) | 一键安装脚本 + 交互式菜单（`sb` 命令） |
-| **YGVPN**（本项目） | 全自动包装：替你点菜单、轮询等待、错误处理、验证、批量部署 |
+
+| [sing-box-yg](https://github.com/yonggekkk/sing-box-yg)（甬哥） | 🎖️ **原作者**，一键安装脚本 + 交互式菜单 |
+
+| [ccAzy/sing-box-yg](https://github.com/ccAzy/sing-box-yg) | 本项目的 fork，用于稳定性锁定 |
+
+| **YGVPN**（本项目） | 全自动包装：替人点菜单、轮询等待、错误处理、批量部署 |
+
+
 
 一句话：**YGVPN = sing-box-yg 的无人值守版。**
 
----
+
+
+> 💝 特别感谢甬哥 [yonggekkk](https://github.com/yonggekkk) 开发的 sing-box-yg，本项目在其基础上进行自动化改造。
 
 ## 🔒 安全
 
@@ -233,5 +249,5 @@ YGVPN 是基于 [ccAzy/sing-box-yg](https://github.com/ccAzy/sing-box-yg) 的全
 ---
 
 <p align="center">
-  <sub>MIT License · 基于 <a href="https://github.com/ccAzy/sing-box-yg">sing-box-yg</a></sub>
+  <sub>MIT License · 原作者 <a href="https://github.com/yonggekkk/sing-box-yg">yonggekkk/sing-box-yg</a> · Fork <a href="https://github.com/ccAzy/sing-box-yg">ccAzy/sing-box-yg</a></sub>
 </p>

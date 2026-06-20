@@ -1,7 +1,7 @@
 ---
 name: YGVPN
 description: >
-  Deploy sing-box VPN on a fresh Ubuntu/Debian VPS using the ccAzy/sing-box-yg script.
+  基于甬哥 yonggekkk/sing-box-yg 二次开发的全自动部署指南。原项目: https://github.com/yonggekkk/sing-box-yg
   Use when the user asks to deploy sing-box, set up a VPN/VPS proxy node, configure Vless/Hysteria2/Tuic5/Vmess protocols, set up local IP subscriptions, Argo tunnels, domain split routing, or push node subscriptions to Telegram.
 ---
 
