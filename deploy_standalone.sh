@@ -166,6 +166,20 @@ ARGO_URL=$(grep -oP 'https?://[a-z0-9.-]+\.trycloudflare\.com' /etc/s-box/argo.l
 # ────────────────────────────────────────────────────────────────
 # Step 6: 域名分流
 # ────────────────────────────────────────────────────────────────
+# 检测 IPv6（WARP 不需要原生 IPv6，但提示用户）
+
+IPV6_ADDR=$(curl -s6 ifconfig.me 2>/dev/null || echo "")
+
+if [ -n "$IPV6_ADDR" ]; then
+
+    info "检测到 IPv6: $IPV6_ADDR"
+
+else
+
+    info "无原生 IPv6（WARP 会通过 IPv4 建立隧道，不影响使用）"
+
+fi
+
 step 6 "域名分流 (WARP-IPv6)"
 
 DOMAINS="google.com youtube.com gmail.com googleapis.com blogspot.com chatgpt.com claude.ai gemini.google.com openai.com perplexity.ai netflix.com disneyplus.com spotify.com hulu.com hbomax.com github.com gitlab.com stackoverflow.com docker.com npmjs.com twitter.com x.com facebook.com instagram.com reddit.com discord.com t.me wikipedia.org medium.com quora.com patreon.com twitch.tv"
