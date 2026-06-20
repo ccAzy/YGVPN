@@ -69,7 +69,12 @@ ok "清理完成"
 
 # ────────────────────────────────────────────────────────────────
 # Step 1: 安装 sing-box
+MIRROR=""
+for a in "$@"; do [[ "$a" == "--mirror" ]] && MIRROR="https://ghproxy.com/" && break; done
+[ -n "$MIRROR" ] && info "使用 ghproxy 镜像加速"
 # ────────────────────────────────────────────────────────────────
+MIRROR=""
+[[ "${1:-}" == "--mirror" ]] || [[ "${2:-}" == "--mirror" ]] && MIRROR="https://ghproxy.com/" && info "使用 ghproxy 镜像加速"
 step 1 "安装 sing-box (约 1-2 分钟)"
 
 printf "1\n" | bash <(wget -qO- https://raw.githubusercontent.com/ccAzy/sing-box-yg/main/sb.sh) 2>&1 | tail -3
