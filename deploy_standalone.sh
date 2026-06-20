@@ -94,7 +94,7 @@ if $SKIP_BBR; then
 else
     step 2 "BBR 加速"
     # 先检查内核是否已支持 BBR（Ubuntu 22.04+ 默认支持）
-    if sysctl net.ipv4.tcp_available_congestion_control 2>/dev/null | grep -q bbr 2>/dev/null; then
+    if sysctl net.ipv4.tcp_available_congestion_control 2>/dev/null | grep -q bbr; then
         # 内核支持，直接 sysctl 开启（秒级）
         grep -q "net.core.default_qdisc=fq" /etc/sysctl.conf 2>/dev/null || echo "net.core.default_qdisc=fq" >> /etc/sysctl.conf
         grep -q "net.ipv4.tcp_congestion_control=bbr" /etc/sysctl.conf 2>/dev/null || echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.conf
