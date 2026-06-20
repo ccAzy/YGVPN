@@ -132,9 +132,30 @@ fi
 # ────────────────────────────────────────────────────────────────
 step 4 "Hysteria2 端口跳跃"
 
-nohup bash -c 'printf "4\n3\n2\n40000:41000\n0\n" | sb' > /dev/null 2>&1 &
-sleep 10
-iptables -t nat -L PREROUTING 2>/dev/null | grep -q '40000' && ok "Hysteria2 已配置" || warn "Hysteria2 可能未生效"
+nohup bash -c 'printf "4
+3
+2
+40000:41000
+0
+" | sb' > /dev/null 2>&1 &
+
+sleep 15
+
+# 同时检查 iptables 和 nftables（新系统可能用 nft）
+
+if iptables -t nat -L PREROUTING 2>/dev/null | grep -q '40000'; then
+
+    ok "Hysteria2 已配置 (iptables)"
+
+elif nft list ruleset 2>/dev/null | grep -q '40000'; then
+
+    ok "Hysteria2 已配置 (nftables)"
+
+else
+
+    warn "Hysteria2 可能未生效，稍后可手动检查: iptables -t nat -L PREROUTING | grep 40000"
+
+fi
 
 # ────────────────────────────────────────────────────────────────
 # Step 5: Argo 隧道
