@@ -104,7 +104,7 @@ bash deploy_standalone.sh
 
     "jp":  { "ip": "1.2.3.4",  "port": 22,   "user": "root", "password": "你的密码" },
 
-    "hk":  { "ip": "5.6.7.8",  "port": 6688, "user": "root", "password": "你的密码" },
+    "hk":  { "ip": "5.6.7.8",  "port": 22, "user": "root", "password": "你的密码" },
 
     "us":  { "ip": "9.10.11.12","port": 22,   "user": "root", "password": "你的密码" }
 
@@ -117,6 +117,18 @@ bash deploy_standalone.sh
 
 
 > `"jp"` `"hk"` `"us"` 是你自己起的服务器名字，数量不限。对应 `--server jp` 中的 `jp`。
+
+**字段说明：**
+
+| 字段 | 含义 | 示例 |
+|------|------|------|
+| `"jp"` / `"hk"` / `"us"` | 你起的**服务器昵称**，数量不限 | 随便取，中英文都行 |
+| `"ip"` | 服务器 **公网 IP** | `"1.2.3.4"` |
+| `"port"` | **SSH 端口**，默认 22 | `22` |
+| `"user"` | **SSH 用户名**，一般 root | `"root"` |
+| `"password"` | **SSH 密码** | `"你的密码"` |
+
+> ⚠️ 文件含明文密码，**不要提交到 Git**。
 
 
 
