@@ -93,9 +93,7 @@ else
         # 内核支持，直接 sysctl 开启（秒级）
         grep -q "net.core.default_qdisc=fq" /etc/sysctl.conf 2>/dev/null || echo "net.core.default_qdisc=fq" >> /etc/sysctl.conf
         grep -q "net.ipv4.tcp_congestion_control=bbr" /etc/sysctl.conf 2>/dev/null || echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.conf
-        sysctl -p > /dev/null 2>&1
-        BBR=$(sysctl net.ipv4.tcp_congestion_control 2>/dev/null | awk -F= "{print $2}")
-        [[ "$BBR" == *bbr* ]] && ok "BBR 已启用: $BBR (sysctl)" || warn "BBR: $BBR"
+        sysctl net.ipv4.tcp_congestion_control 2>/dev/null | grep -q bbr && ok "BBR 已启用 (sysctl)" || warn "BBR 未生效"
     else
         # 旧内核不支持，走 sb 脚本安装新内核（较慢，需重启）
         warn "内核不支持 BBR，使用 sb 安装新内核..."
