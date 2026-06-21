@@ -187,7 +187,7 @@ CHAT_ID="__TG_CHAT_ID__"
 URL="https://api.telegram.org/bot${TOKEN}/sendMessage"
 
 CLASH_URL="http://SERVER_IP:SUBPORT/SUBTOKEN/clmi.yaml"
-SINGBOX_URL="http://SERVER_IP:SUBPORT/SUBTOKEN/sbox.json"
+
 JH_URL="http://SERVER_IP:SUBPORT/SUBTOKEN/jhsub.txt"
 
 msg="节点订阅链接
@@ -249,21 +249,20 @@ curl -s -o /dev/null -w '%{http_code}' "http://<IP>:${SUBPORT}/${SUBTOKEN}/clmi.
 
 ```bash
 # 全流程
-python deploy.py <服务器IP>
+python deploy.py --server <name>
 
 # 跳过清理（升级/修复场景）
-python deploy.py <服务器IP> --skip-cleanup
+python deploy.py --server <name> --skip-cleanup
 
 # 跳过 BBR（已开启过的机器）
-python deploy.py <服务器IP> --skip-bbr
+python deploy.py --server <name> --skip-bbr
 
 # 启用 TG 自动推送
-TG_TOKEN="xxx" TG_CHAT_ID="yyy" python deploy.py <服务器IP>
+TG_TOKEN="xxx" TG_CHAT_ID="yyy" python deploy.py --server <name>
 ```
 
 ## 多服务器批量部署
 
-参考 `deploy_all.py`（在上级 VPN 目录），通过 paramiko 批量 SSH 执行，支持并发多台服务器。
 
 ```python
 # 精简示例

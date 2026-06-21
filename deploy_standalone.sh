@@ -64,9 +64,6 @@ rm -rf /etc/s-box /usr/bin/sb /root/websbox
 mkdir -p /etc/s-box
 iptables -t nat -D PREROUTING -p udp --dport 40000:41000 -j DNAT --to-destination :34682 2>/dev/null || true
 iptables -t nat -D POSTROUTING -m mark --mark 0x40000/0xff0000 -j MASQUERADE 2>/dev/null || true
-nft delete table inet sing-box 2>/dev/null || true
-ok "清理完成"
-
 # ────────────────────────────────────────────────────────────────
 # Step 1: 安装 sing-box
 MIRROR=""
@@ -391,9 +388,9 @@ echo -e "${Y}──────────────────────�
 echo "  需要: 1) Bot Token (@BotFather)  2) Chat ID (@userinfobot)"
 echo ""
 read -p "  输入 Bot Token (回车跳过): " TG_TOKEN
-[ -z "$TG_TOKEN" ] && echo "  已跳过" && exit 0  
+[ -z "$TG_TOKEN" ] && echo "  已跳过" && { echo ""; echo -e "${G}全部完成！${N}"; exit 0; }  
 read -p "  输入 Chat ID: " TG_CHAT_ID
-[ -z "$TG_CHAT_ID" ] && echo "  已跳过" && exit 0
+[ -z "$TG_CHAT_ID" ] && echo "  已跳过" && { echo ""; echo -e "${G}全部完成！${N}"; exit 0; }
 
 CLASH_URL="http://${SERVER_IP}:${SUBPORT}/${SUBTOKEN}/clmi.yaml"
 JH_URL="http://${SERVER_IP}:${SUBPORT}/${SUBTOKEN}/jhsub.txt"

@@ -36,6 +36,15 @@ TG_TOKEN = os.environ.get("TG_TOKEN", "")
 TG_CHAT_ID = os.environ.get("TG_CHAT_ID", "")
 
 
+
+R = "[0;31m"; G = "[0;32m"; Y = "[1;33m"; C = "[0;36m"; N = "[0m"
+def ok(msg):    print(G + "[OK]" + N + "  " + str(msg))
+def warn(msg):  print(Y + "[!]" + N + "   " + str(msg))
+def fail(msg):  print(R + "[FAIL]" + N + " " + str(msg))
+def info(msg):  print("      " + str(msg))
+def step(n, title): print(); print(C + "=== [" + str(n) + "] " + title + " ===" + N)
+
+
 class Deployer:
     def __init__(self, host, port, user, password, tg_token=None, tg_chat_id=None):
         self.tg_token = tg_token or os.environ.get("TG_TOKEN", "")
@@ -132,7 +141,7 @@ class Deployer:
         print("   downloading + installing (~60-120s)...")
         _, stdout, stderr = self.client.exec_command(cmd, timeout=300)
     def step_bbr(self):
-        step_m('2', 'BBR + kernel check')
+        step('2', 'BBR + kernel check')
         # Check kernel version
         _, stdout, _ = self.client.exec_command(
             "uname -r | cut -d. -f1,2", timeout=5)
@@ -141,9 +150,9 @@ class Deployer:
         kmajor, kminor = int(parts[0]), int(parts[1]) if len(parts) > 1 else 0
 
         if kmajor >= 7 or (kmajor == 6 and kminor >= 12):
-            info_m(f'Kernel {kver} supports BBRv3')
+            info(f'Kernel {kver} supports BBRv3')
         else:
-            warn_m(f'Kernel {kver} is old (BBRv1 only), upgrading...')
+            warn(f'Kernel {kver} is old (BBRv1 only), upgrading...')
             # Detect OS and install newer kernel
             _, stdout, _ = self.client.exec_command(
                 '. /etc/os-release 2>/dev/null && echo $ID', timeout=5)
@@ -162,8 +171,8 @@ class Deployer:
                          'yum --enablerepo=elrepo-kernel install -y kernel-ml 2>/dev/null && echo OK || echo FAIL',
                          timeout=180, show=False)
             elif os_id == 'fedora':
-                info_m('Fedora kernel usually recent enough, skipping upgrade')
-                ok_m('Kernel installed, reboot to activate')
+                info('Fedora kernel usually recent enough, skipping upgrade')
+                ok('Kernel installed, reboot to activate')
 
         # Enable BBR — three layers
         self.run('modprobe tcp_bbr 2>/dev/null || true', show=False)
@@ -175,40 +184,9 @@ class Deployer:
         _, stdout, _ = self.client.exec_command('sysctl -n net.ipv4.tcp_congestion_control 2>/dev/null', timeout=5)
         bbr = stdout.read().decode().strip()
         if bbr == 'bbr':
-            ok_m('BBR enabled')
+            ok('BBR enabled')
         else:
-            warn_m(f'BBR not active ({bbr}) — try manual: modprobe tcp_bbr && sysctl -w net.ipv4.tcp_congestion_control=bbr')
-        return True
-    def step_network_tune(self):
-        step_m('2.5', 'Network aggressive tune')
-        self.run(
-            "cp /etc/sysctl.conf /etc/sysctl.conf.bak.$(date +%s) 2>/dev/null; "
-            "sysctl -w net.core.rmem_max=16777216 >/dev/null; "
-            "sysctl -w net.core.wmem_max=16777216 >/dev/null; "
-            "sysctl -w net.ipv4.tcp_fastopen=3 >/dev/null; "
-            "sysctl -w net.ipv4.tcp_slow_start_after_idle=0 >/dev/null; "
-            "sysctl -w net.ipv4.tcp_mtu_probing=1 >/dev/null; "
-            "sysctl -w net.ipv4.tcp_tw_reuse=1 >/dev/null; "
-            "sysctl -w net.ipv4.tcp_fin_timeout=10 >/dev/null; "
-            "sysctl -w net.ipv4.tcp_keepalive_time=120 >/dev/null; "
-            "sysctl -w net.core.somaxconn=16384 >/dev/null; "
-            "sysctl -w net.core.netdev_max_backlog=20000 >/dev/null; "
-            "sysctl -w net.ipv4.tcp_max_syn_backlog=8192 >/dev/null; "
-            "sysctl -w net.ipv4.tcp_synack_retries=1 >/dev/null; "
-            "sysctl -w net.ipv4.tcp_syn_retries=2 >/dev/null; "
-            "sysctl -w net.ipv4.tcp_notsent_lowat=16384 >/dev/null; "
-            "sysctl -w vm.swappiness=5 >/dev/null; "
-            "sysctl -w vm.dirty_ratio=10 >/dev/null; "
-            "sysctl -w vm.dirty_background_ratio=3 >/dev/null; "
-            "sysctl -w vm.vfs_cache_pressure=50 >/dev/null; "
-            "sysctl -w fs.file-max=2097152 >/dev/null; "
-            "echo never > /sys/kernel/mm/transparent_hugepage/enabled 2>/dev/null; "
-            "echo never > /sys/kernel/mm/transparent_hugepage/defrag 2>/dev/null; "
-            "echo OK",
-            timeout=30, show=False)
-        self.sftp_write('/etc/security/limits.conf',
-            "# YGVPN network tune\n* soft nofile 2097152\n* hard nofile 2097152\nroot soft nofile 2097152\nroot hard nofile 2097152\n")
-        ok_m('Network aggressive tune applied')
+            warn(f'BBR not active ({bbr}) — try manual: modprobe tcp_bbr && sysctl -w net.ipv4.tcp_congestion_control=bbr')
         return True
 
     def step_subscription(self):
@@ -259,7 +237,7 @@ class Deployer:
             "chmod +x /etc/s-box/cloudflared && echo OK",
             label="3.3a Update cloudflared", timeout=150
         )
-        if dl_ok != 0:
+        if 'OK' not in str(dl_ok):
             self.run(
                 "test -x /etc/s-box/cloudflared && echo 'using existing' || "
                 "(cp /opt/cloudflared/cloudflared /etc/s-box/cloudflared && "
@@ -509,7 +487,7 @@ def main():
                     sf = ck
                     break
         if not os.path.exists(sf):
-            fail_m('servers.json not found: ' + sf)
+            fail('servers.json not found: ' + sf)
             sys.exit(1)
         with open(sf, 'r') as f:
             config = json.load(f)
@@ -518,8 +496,8 @@ def main():
             print('Batch deploy: ' + str(len(servers_to_deploy)) + ' servers')
         else:
             if args.server not in config['servers']:
-                fail_m('Server "' + args.server + '" not found')
-                info_m('Available: ' + ', '.join(config['servers'].keys()))
+                fail('Server "' + args.server + '" not found')
+                info('Available: ' + ', '.join(config['servers'].keys()))
                 sys.exit(1)
             servers_to_deploy = [(args.server, config['servers'][args.server])]
     else:

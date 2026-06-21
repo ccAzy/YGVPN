@@ -97,6 +97,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/ccAzy/YGVPN/main/deploy_stan
 |------|------|
 | Python | 3.8+ |
 | paramiko | `pip install paramiko` |
+# 可选（Argo 订阅修复需要）：pip install pyyaml
 | `servers.json` | 服务器配置文件（格式见下方） |
 
 ### 第 1 步 — 创建 `servers.json`
@@ -127,6 +128,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/ccAzy/YGVPN/main/deploy_stan
 
 ```bash
 pip install paramiko
+# 可选（Argo 订阅修复需要）：pip install pyyaml
 
 python deploy.py --server jp          # 单台
 python deploy.py --server all         # 全部
