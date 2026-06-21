@@ -111,12 +111,25 @@ else
             warn "内核 $KVER 较旧 (仅 BBRv1)，尝试升级..."
         source /etc/os-release 2>/dev/null
         if [ "$ID" = "debian" ]; then
-            info "Debian 系统，从 backports 安装 6.12 内核..."
-            apt install -y -t ${VERSION_CODENAME}-backports linux-image-amd64 2>/dev/null && ok "内核已安装，重启后生效" || warn "内核升级失败"
+            DEB_VER=$(cat /etc/debian_version 2>/dev/null | cut -d. -f1)
+            if [ "$DEB_VER" -ge 12 ]; then
+                info "Debian $DEB_VER，从 backports 安装内核..."
+                apt install -y -t ${VERSION_CODENAME}-backports linux-image-amd64 2>/dev/null && ok "内核已安装，重启后生效" || warn "内核升级失败"
+            else
+                info "Debian $DEB_VER (较旧)，尝试 Liquorix 内核..."
+                curl -s https://liquorix.net/add-liquorix-repo.sh 2>/dev/null | bash 2>/dev/null
+                apt install -y linux-image-liquorix-amd64 2>/dev/null && ok "Liquorix 安装成功，重启后生效" || warn "内核升级失败 — 考虑升级到 Debian 12+"
+            fi
         elif [ "$ID" = "ubuntu" ]; then
-            info "Ubuntu 系统，安装 Liquorix 内核..."
-            curl -s https://liquorix.net/add-liquorix-repo.sh 2>/dev/null | bash 2>/dev/null
-            apt install -y linux-image-liquorix-amd64 2>/dev/null && ok "内核已安装，重启后生效" || warn "内核升级失败"
+            UB_VER=$(echo "$VERSION_ID" | cut -d. -f1)
+            if [ "$UB_VER" -ge 20 ]; then
+                info "Ubuntu $UB_VER，安装 Liquorix 内核..."
+                curl -s https://liquorix.net/add-liquorix-repo.sh 2>/dev/null | bash 2>/dev/null
+                apt install -y linux-image-liquorix-amd64 2>/dev/null && ok "内核已安装，重启后生效" || warn "内核升级失败"
+            else
+                warn "Ubuntu $UB_VER 太旧 (需 20.04+)，无法自动升级内核"
+                warn "请手动升级系统或换用 Debian 12 / Ubuntu 22.04+"
+            fi
         elif [ "$ID" = "centos" ] || [ "$ID" = "rhel" ] || [ "$ID" = "rocky" ] || [ "$ID" = "almalinux" ]; then
             info "RHEL 系，从 ELRepo 安装最新内核..."
             rpm --import https://www.elrepo.org/RPM-GPG-KEY-elrepo.org 2>/dev/null
