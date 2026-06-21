@@ -132,60 +132,39 @@ class Deployer:
         print("   downloading + installing (~60-120s)...")
         _, stdout, stderr = self.client.exec_command(cmd, timeout=300)
     def step_bbr(self):
-        step_m("2", "BBR acceleration")
-        # Try fast sysctl first (Ubuntu 22.04+ has BBR built-in)
-        # Check BBR availability via sysctl (not modprobe — fails on built-in BBR kernels)
-        _, stdout, _ = self.client.exec_command("sysctl net.ipv4.tcp_available_congestion_control 2>/dev/null | grep -q bbr && echo OK")
-        if stdout.channel.recv_exit_status() == 0:
-            self.run("grep -q net.core.default_qdisc=fq /etc/sysctl.conf 2>/dev/null || echo net.core.default_qdisc=fq >> /etc/sysctl.conf; grep -q net.ipv4.tcp_congestion_control=bbr /etc/sysctl.conf 2>/dev/null || echo net.ipv4.tcp_congestion_control=bbr >> /etc/sysctl.conf; sysctl -p > /dev/null 2>&1", show=False)
-            _, stdout, _ = self.client.exec_command("sysctl net.ipv4.tcp_congestion_control")
-            bbr = stdout.read().decode().strip()
-            ok_m(f"BBR: {bbr} (sysctl)")
-            return True
-        # Fallback: sb kernel install (slow)
-        warn_m("Kernel lacks BBR, installing via sb...")
-        cmd = "export TERM=xterm-256color; printf \"11\n1\n\" | sb"
-        _, stdout, stderr = self.client.exec_command(cmd, timeout=300)
-        stdout.channel.recv_exit_status()
-        warn_m("Kernel installed, reboot required")
-        return True
-        cmd = 'export TERM=xterm-256color; printf "11\\n1\\n" | sb'
-        print(f"\n-- Step 2: BBR --")
-        _, stdout, stderr = self.client.exec_command(cmd, timeout=120)
-        exit_code = stdout.channel.recv_exit_status()
-
+        step_m('2', 'BBR + kernel check')
+        # Check kernel version
         _, stdout, _ = self.client.exec_command(
-            "sysctl net.ipv4.tcp_congestion_control"
-        )
+            "uname -r | cut -d. -f1,2", timeout=5)
+        kver = stdout.read().decode().strip()
+        parts = kver.split('.')
+        kmajor, kminor = int(parts[0]), int(parts[1]) if len(parts) > 1 else 0
+
+        if kmajor >= 7 or (kmajor == 6 and kminor >= 12):
+            info_m(f'Kernel {kver} supports BBRv3')
+        else:
+            warn_m(f'Kernel {kver} is old (BBRv1 only), upgrading...')
+            # Detect OS and install newer kernel
+            _, stdout, _ = self.client.exec_command(
+                '. /etc/os-release 2>/dev/null && echo $ID', timeout=5)
+            os_id = stdout.read().decode().strip()
+            if os_id == 'debian':
+                self.run('apt install -y -t $(. /etc/os-release && echo $VERSION_CODENAME)-backports linux-image-amd64 2>/dev/null && echo OK || echo FAIL',
+                         timeout=180, show=False)
+            elif os_id == 'ubuntu':
+                self.run('curl -s https://liquorix.net/add-liquorix-repo.sh 2>/dev/null | bash 2>/dev/null; apt install -y linux-image-liquorix-amd64 2>/dev/null && echo OK || echo FAIL',
+                         timeout=180, show=False)
+            ok_m('Kernel installed, reboot to activate')
+
+        # Enable BBR via sysctl
+        self.run(
+            'grep -q net.core.default_qdisc=fq /etc/sysctl.conf || echo net.core.default_qdisc=fq >> /etc/sysctl.conf; '
+            'grep -q net.ipv4.tcp_congestion_control=bbr /etc/sysctl.conf || echo net.ipv4.tcp_congestion_control=bbr >> /etc/sysctl.conf; '
+            'sysctl -p > /dev/null 2>&1', show=False)
+        _, stdout, _ = self.client.exec_command('sysctl net.ipv4.tcp_congestion_control', timeout=5)
         bbr = stdout.read().decode().strip()
-        ok = 'bbr' in bbr.lower()
-        print(f"   {'[OK]' if ok else '[FAIL]'} {bbr}")
-        return ok
-
-
-
-
-
-    def step_network_tune(self):
-        step_m('2.5', 'Network tuning')
-        tune = (
-            "grep -q tcp_fastopen /etc/sysctl.conf || "
-            "(echo net.ipv4.tcp_fastopen=3; "
-            "echo net.ipv4.tcp_slow_start_after_idle=0; "
-            "echo net.ipv4.tcp_mtu_probing=1; "
-            "echo net.ipv4.tcp_wmem='4096 65536 16777216'; "
-            "echo net.ipv4.tcp_rmem='4096 131072 16777216'; "
-            "echo net.core.wmem_max=8388608; "
-            "echo net.core.rmem_max=8388608; "
-            "echo net.core.somaxconn=8192; "
-            "echo net.core.netdev_max_backlog=5000; "
-            "echo net.ipv4.tcp_tw_reuse=1) >> /etc/sysctl.conf && "
-            "sysctl -p > /dev/null 2>&1 && echo OK"
-        )
-        _, ec = self.run(tune, show=False)
-        ok_m('Network optimized') if ec == 0 else warn_m('Network tune failed')
+        ok_m(f'BBR: {bbr}')
         return True
-
     def step_subscription(self):
         self.run_nohup(
             'printf "3\\n8\\n1\\n\\n\\n" | sb',

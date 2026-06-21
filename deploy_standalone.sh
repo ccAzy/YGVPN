@@ -92,21 +92,32 @@ fi
 if $SKIP_BBR; then
     warn "跳过 BBR"
 else
-    step 2 "BBR 加速"
-    # 先检查内核是否已支持 BBR（Ubuntu 22.04+ 默认支持）
-    if sysctl net.ipv4.tcp_available_congestion_control 2>/dev/null | grep -q bbr; then
-        # 内核支持，直接 sysctl 开启（秒级）
-        grep -q "net.core.default_qdisc=fq" /etc/sysctl.conf 2>/dev/null || echo "net.core.default_qdisc=fq" >> /etc/sysctl.conf
-        grep -q "net.ipv4.tcp_congestion_control=bbr" /etc/sysctl.conf 2>/dev/null || echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.conf
-        sysctl net.ipv4.tcp_congestion_control 2>/dev/null | grep -q bbr && ok "BBR 已启用 (sysctl)" || warn "BBR 未生效"
+    step 2 "BBR 加速 + 内核检查"
+    KVER=$(uname -r | cut -d. -f1,2)
+    KMAJOR=$(echo $KVER | cut -d. -f1)
+    KMINOR=$(echo $KVER | cut -d. -f2)
+
+    # 检查是否需要升级内核 (BBRv3 需要 >= 6.12)
+    if [ "$KMAJOR" -ge 7 ] || { [ "$KMAJOR" -eq 6 ] && [ "$KMINOR" -ge 12 ]; }; then
+        info "内核 $KVER 已支持 BBRv3，直接开启..."
     else
-        # 旧内核不支持，走 sb 脚本安装新内核（较慢，需重启）
-        warn "内核不支持 BBR，使用 sb 安装新内核..."
-        printf "11
-1
-" | sb 2>&1 | tail -3
-        warn "内核安装完成，请 reboot 后生效"
+        warn "内核 $KVER 较旧 (仅 BBRv1)，尝试升级..."
+        source /etc/os-release 2>/dev/null
+        if [ "$ID" = "debian" ]; then
+            info "Debian 系统，从 backports 安装 6.12 内核..."
+            apt install -y -t ${VERSION_CODENAME}-backports linux-image-amd64 2>/dev/null && ok "内核已安装，重启后生效" || warn "内核升级失败"
+        elif [ "$ID" = "ubuntu" ]; then
+            info "Ubuntu 系统，安装 Liquorix 内核..."
+            curl -s https://liquorix.net/add-liquorix-repo.sh 2>/dev/null | bash 2>/dev/null
+            apt install -y linux-image-liquorix-amd64 2>/dev/null && ok "内核已安装，重启后生效" || warn "内核升级失败"
+        fi
     fi
+
+    # 开启 BBR (sysctl，秒级)
+    grep -q "net.core.default_qdisc=fq" /etc/sysctl.conf 2>/dev/null || echo "net.core.default_qdisc=fq" >> /etc/sysctl.conf
+    grep -q "net.ipv4.tcp_congestion_control=bbr" /etc/sysctl.conf 2>/dev/null || echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.conf
+    sysctl -p > /dev/null 2>&1
+    sysctl net.ipv4.tcp_congestion_control 2>/dev/null | grep -q bbr && ok "BBR 已启用" || warn "BBR 未生效 (试试 reboot)"
 fi
 
 # ────────────────────────────────────────────────────────────────
