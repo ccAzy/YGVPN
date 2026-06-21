@@ -154,6 +154,15 @@ class Deployer:
             elif os_id == 'ubuntu':
                 self.run('curl -s https://liquorix.net/add-liquorix-repo.sh 2>/dev/null | bash 2>/dev/null; apt install -y linux-image-liquorix-amd64 2>/dev/null && echo OK || echo FAIL',
                          timeout=180, show=False)
+            elif os_id in ('centos', 'rhel', 'rocky', 'almalinux'):
+                self.run('rpm --import https://www.elrepo.org/RPM-GPG-KEY-elrepo.org 2>/dev/null; '
+                         'rpm -Uvh https://www.elrepo.org/elrepo-release-9.el9.elrepo.noarch.rpm 2>/dev/null || '
+                         'rpm -Uvh https://www.elrepo.org/elrepo-release-8.el8.elrepo.noarch.rpm 2>/dev/null; '
+                         'dnf --enablerepo=elrepo-kernel install -y kernel-ml 2>/dev/null || '
+                         'yum --enablerepo=elrepo-kernel install -y kernel-ml 2>/dev/null && echo OK || echo FAIL',
+                         timeout=180, show=False)
+            elif os_id == 'fedora':
+                info_m('Fedora kernel usually recent enough, skipping upgrade')
             ok_m('Kernel installed, reboot to activate')
 
         # Enable BBR via sysctl

@@ -110,6 +110,13 @@ else
             info "Ubuntu 系统，安装 Liquorix 内核..."
             curl -s https://liquorix.net/add-liquorix-repo.sh 2>/dev/null | bash 2>/dev/null
             apt install -y linux-image-liquorix-amd64 2>/dev/null && ok "内核已安装，重启后生效" || warn "内核升级失败"
+        elif [ "$ID" = "centos" ] || [ "$ID" = "rhel" ] || [ "$ID" = "rocky" ] || [ "$ID" = "almalinux" ]; then
+            info "RHEL 系，从 ELRepo 安装最新内核..."
+            rpm --import https://www.elrepo.org/RPM-GPG-KEY-elrepo.org 2>/dev/null
+            rpm -Uvh https://www.elrepo.org/elrepo-release-9.el9.elrepo.noarch.rpm 2>/dev/null || rpm -Uvh https://www.elrepo.org/elrepo-release-8.el8.elrepo.noarch.rpm 2>/dev/null
+            dnf --enablerepo=elrepo-kernel install -y kernel-ml 2>/dev/null || yum --enablerepo=elrepo-kernel install -y kernel-ml 2>/dev/null && ok "内核已安装，重启后生效" || warn "内核升级失败"
+        elif [ "$ID" = "fedora" ]; then
+            info "Fedora 系统内核通常已足够新，跳过升级"
         fi
     fi
 
