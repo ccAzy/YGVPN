@@ -393,7 +393,7 @@ CHAT_ID="{self.tg_chat_id}"
 URL="https://api.telegram.org/bot${{TOKEN}}/sendMessage"
 
 CLASH_URL="http://{ip}:{subport}/{subtoken}/clmi.yaml"
-JH_URL="http://{ip}:{subport}/{subtoken}/jhsub.txt"
+CLASH_URL="http://{ip}:{subport}/{subtoken}/clmi.yaml"
 
 msg="{server_label}
 Clash / Mihomo:
