@@ -86,15 +86,17 @@ printf "1\n" | bash <(wget -qO- https://raw.githubusercontent.com/ccAzy/sing-box
 which sb && [ -d /etc/s-box ] && echo "安装成功" || echo "安装失败"
 ```
 
-## 第二步：开启 BBR 加速
+## 第二步：BBR 加速 + 内核检查
 
-```
-主菜单输入: 11
-```
+脚本自动处理，无需手动操作：
+- 检测 `uname -r` 版本号
+- u003e= 6.12 u2192 直接 sysctl 秒开 BBRv3
+- < 6.12 u2192 自动升级内核：Debian backports / Ubuntu Liquorix / RHEL ELRepo
+- /boot 已有新内核 u2192 跳过安装，提示 reboot
 
-管道方式：`printf "11\n1\n" | sb`（选最新内核版本）
-
-## 第三步：节点配置
+手动管道方式（不推荐）：`printf "11
+1
+" | sb`
 
 以下全部在 `sb` 主菜单中操作。**每步完成后建议做校验。** 失败则终止后续步骤。
 
@@ -234,7 +236,7 @@ curl -s -o /dev/null -w '%{http_code}' "http://<IP>:${SUBPORT}/${SUBTOKEN}/clmi.
 |------|------------|------|
 | 清理 | `bash cleanup.sh --force` 或手动执行上方清理脚本 | `[ ! -d /etc/s-box ]` |
 | 安装 | `printf "1\n" \| bash <(wget -qO- sb.sh)` | `which sb` |
-| BBR | `printf "11\n1\n" \| sb` | 重启后检查 `sysctl net.ipv4.tcp_congestion_control` |
+| BBR+内核 | 自动检测 2192 sysctl 秒开 或 自动升级内核 | 重启后 `uname -r` |
 | 订阅 | `printf "3\n8\n1\n\n\n" \| sb` | `[ -f /etc/s-box/subport.log ]` |
 | Hysteria2 | `printf "4\n3\n2\n40000:41000\n0\n" \| sb` | `ss -ulnp \| grep 34682` |
 | Argo | `nohup bash -c 'printf "3\n3\n1\n1\n" \| sb' &` → 轮询等待 | `grep trycloudflare /etc/s-box/argo.log` |
