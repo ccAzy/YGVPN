@@ -163,7 +163,7 @@ class Deployer:
                          timeout=180, show=False)
             elif os_id == 'fedora':
                 info_m('Fedora kernel usually recent enough, skipping upgrade')
-            ok_m('Kernel installed, reboot to activate')
+                ok_m('Kernel installed, reboot to activate')
 
         # Enable BBR via sysctl
         self.run(
