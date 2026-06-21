@@ -93,7 +93,7 @@ if $SKIP_BBR; then
     warn "跳过 BBR"
 else
     step 2 "BBR 加速 + 内核检查"
-    KVER=$(uname -r | cut -d. -f1,2)
+    KVER=$(uname -r | sed "s/-.*//" | cut -d. -f1,2)
     KMAJOR=$(echo $KVER | cut -d. -f1)
     KMINOR=$(echo $KVER | cut -d. -f2)
 
@@ -101,7 +101,14 @@ else
     if [ "$KMAJOR" -ge 7 ] || { [ "$KMAJOR" -eq 6 ] && [ "$KMINOR" -ge 12 ]; }; then
         info "内核 $KVER 已支持 BBRv3，直接开启..."
     else
-        warn "内核 $KVER 较旧 (仅 BBRv1)，尝试升级..."
+        # 检查 /boot 是否已有新内核（装了没重启）
+        NEWEST=$(ls /boot/vmlinuz-* 2>/dev/null | sed "s/.*vmlinuz-//" | sort -V | tail -1 | sed "s/-.*//")
+        NEWEST_VER=$(echo $NEWEST | cut -d. -f1,2 2>/dev/null)
+        if [ -n "$NEWEST_VER" ] && [ "$NEWEST_VER" != "$KVER" ]; then
+            warn "已安装新内核但未重启！当前: $KVER, 已装: $NEWEST"
+            warn "请 reboot 后生效，跳过重复安装"
+        else
+            warn "内核 $KVER 较旧 (仅 BBRv1)，尝试升级..."
         source /etc/os-release 2>/dev/null
         if [ "$ID" = "debian" ]; then
             info "Debian 系统，从 backports 安装 6.12 内核..."
@@ -118,6 +125,7 @@ else
         elif [ "$ID" = "fedora" ]; then
             info "Fedora 系统内核通常已足够新，跳过升级"
         fi
+        fi  # close 'already new kernel' check
     fi
 
     # 开启 BBR (sysctl，秒级)
