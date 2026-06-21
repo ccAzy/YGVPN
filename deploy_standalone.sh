@@ -128,11 +128,21 @@ else
         fi  # close 'already new kernel' check
     fi
 
-    # 开启 BBR (sysctl，秒级)
+    # 开启 BBR — 三层保证
+    # 1. 确保模块加载 (某些定制内核可能未自动加载)
+    modprobe tcp_bbr 2>/dev/null || true
+    # 2. 立即生效 (不依赖配置文件)
+    sysctl -w net.core.default_qdisc=fq > /dev/null 2>&1 || true
+    sysctl -w net.ipv4.tcp_congestion_control=bbr > /dev/null 2>&1 || true
+    # 3. 持久化 (写入配置文件)
     grep -q "net.core.default_qdisc=fq" /etc/sysctl.conf 2>/dev/null || echo "net.core.default_qdisc=fq" >> /etc/sysctl.conf
     grep -q "net.ipv4.tcp_congestion_control=bbr" /etc/sysctl.conf 2>/dev/null || echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.conf
-    sysctl -p > /dev/null 2>&1
-    sysctl net.ipv4.tcp_congestion_control 2>/dev/null | grep -q bbr && ok "BBR 已启用" || warn "BBR 未生效 (试试 reboot)"
+    # 4. 验证
+    if [ "$(sysctl -n net.ipv4.tcp_congestion_control 2>/dev/null)" = "bbr" ]; then
+        ok "BBR 已启用"
+    else
+        warn "BBR 未生效 — 试试 modprobe tcp_bbr && sysctl -w net.ipv4.tcp_congestion_control=bbr"
+    fi
 fi
 
 # ────────────────────────────────────────────────────────────────

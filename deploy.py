@@ -165,14 +165,19 @@ class Deployer:
                 info_m('Fedora kernel usually recent enough, skipping upgrade')
                 ok_m('Kernel installed, reboot to activate')
 
-        # Enable BBR via sysctl
-        self.run(
-            'grep -q net.core.default_qdisc=fq /etc/sysctl.conf || echo net.core.default_qdisc=fq >> /etc/sysctl.conf; '
-            'grep -q net.ipv4.tcp_congestion_control=bbr /etc/sysctl.conf || echo net.ipv4.tcp_congestion_control=bbr >> /etc/sysctl.conf; '
-            'sysctl -p > /dev/null 2>&1', show=False)
-        _, stdout, _ = self.client.exec_command('sysctl net.ipv4.tcp_congestion_control', timeout=5)
+        # Enable BBR — three layers
+        self.run('modprobe tcp_bbr 2>/dev/null || true', show=False)
+        self.run('sysctl -w net.core.default_qdisc=fq > /dev/null 2>&1 || true', show=False)
+        self.run('sysctl -w net.ipv4.tcp_congestion_control=bbr > /dev/null 2>&1 || true', show=False)
+        self.run('grep -q net.core.default_qdisc=fq /etc/sysctl.conf || echo net.core.default_qdisc=fq >> /etc/sysctl.conf; '
+                 'grep -q net.ipv4.tcp_congestion_control=bbr /etc/sysctl.conf || echo net.ipv4.tcp_congestion_control=bbr >> /etc/sysctl.conf',
+                 show=False)
+        _, stdout, _ = self.client.exec_command('sysctl -n net.ipv4.tcp_congestion_control 2>/dev/null', timeout=5)
         bbr = stdout.read().decode().strip()
-        ok_m(f'BBR: {bbr}')
+        if bbr == 'bbr':
+            ok_m('BBR enabled')
+        else:
+            warn_m(f'BBR not active ({bbr}) — try manual: modprobe tcp_bbr && sysctl -w net.ipv4.tcp_congestion_control=bbr')
         return True
     def step_subscription(self):
         self.run_nohup(
