@@ -110,6 +110,22 @@ else
 fi
 
 # ────────────────────────────────────────────────────────────────
+# Step 2.5: 网络性能优化
+step 2.5 "网络性能优化"
+cat >> /etc/sysctl.conf << 'SYSCTL'
+# YGVPN network optimizations
+net.ipv4.tcp_fastopen = 3
+net.ipv4.tcp_slow_start_after_idle = 0
+net.ipv4.tcp_mtu_probing = 1
+net.ipv4.tcp_wmem = 4096 65536 16777216
+net.ipv4.tcp_rmem = 4096 131072 16777216
+net.core.wmem_max = 8388608
+net.core.rmem_max = 8388608
+net.core.somaxconn = 8192
+net.core.netdev_max_backlog = 5000
+net.ipv4.tcp_tw_reuse = 1
+SYSCTL
+sysctl -p > /dev/null 2>&1 && ok "网络优化已生效" || warn "网络优化失败"
 # Step 3: 订阅链接
 # ────────────────────────────────────────────────────────────────
 step 3 "配置订阅链接"

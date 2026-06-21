@@ -162,6 +162,30 @@ class Deployer:
         print(f"   {'[OK]' if ok else '[FAIL]'} {bbr}")
         return ok
 
+
+
+
+
+    def step_network_tune(self):
+        step_m('2.5', 'Network tuning')
+        tune = (
+            "grep -q tcp_fastopen /etc/sysctl.conf || "
+            "(echo net.ipv4.tcp_fastopen=3; "
+            "echo net.ipv4.tcp_slow_start_after_idle=0; "
+            "echo net.ipv4.tcp_mtu_probing=1; "
+            "echo net.ipv4.tcp_wmem='4096 65536 16777216'; "
+            "echo net.ipv4.tcp_rmem='4096 131072 16777216'; "
+            "echo net.core.wmem_max=8388608; "
+            "echo net.core.rmem_max=8388608; "
+            "echo net.core.somaxconn=8192; "
+            "echo net.core.netdev_max_backlog=5000; "
+            "echo net.ipv4.tcp_tw_reuse=1) >> /etc/sysctl.conf && "
+            "sysctl -p > /dev/null 2>&1 && echo OK"
+        )
+        _, ec = self.run(tune, show=False)
+        ok_m('Network optimized') if ec == 0 else warn_m('Network tune failed')
+        return True
+
     def step_subscription(self):
         self.run_nohup(
             'printf "3\\n8\\n1\\n\\n\\n" | sb',
@@ -409,6 +433,8 @@ echo "Sent!"
         else:
             print("\n-- Step 2: BBR --")
             print("   skip")
+
+        results['network_tune'] = self.step_network_tune()
 
         results['subscription'] = self.step_subscription()
         results['hysteria2'] = self.step_hysteria2()
