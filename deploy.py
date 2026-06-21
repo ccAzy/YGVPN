@@ -179,6 +179,38 @@ class Deployer:
         else:
             warn_m(f'BBR not active ({bbr}) — try manual: modprobe tcp_bbr && sysctl -w net.ipv4.tcp_congestion_control=bbr')
         return True
+    def step_network_tune(self):
+        step_m('2.5', 'Network aggressive tune')
+        self.run(
+            "cp /etc/sysctl.conf /etc/sysctl.conf.bak.$(date +%s) 2>/dev/null; "
+            "sysctl -w net.core.rmem_max=16777216 >/dev/null; "
+            "sysctl -w net.core.wmem_max=16777216 >/dev/null; "
+            "sysctl -w net.ipv4.tcp_fastopen=3 >/dev/null; "
+            "sysctl -w net.ipv4.tcp_slow_start_after_idle=0 >/dev/null; "
+            "sysctl -w net.ipv4.tcp_mtu_probing=1 >/dev/null; "
+            "sysctl -w net.ipv4.tcp_tw_reuse=1 >/dev/null; "
+            "sysctl -w net.ipv4.tcp_fin_timeout=10 >/dev/null; "
+            "sysctl -w net.ipv4.tcp_keepalive_time=120 >/dev/null; "
+            "sysctl -w net.core.somaxconn=16384 >/dev/null; "
+            "sysctl -w net.core.netdev_max_backlog=20000 >/dev/null; "
+            "sysctl -w net.ipv4.tcp_max_syn_backlog=8192 >/dev/null; "
+            "sysctl -w net.ipv4.tcp_synack_retries=1 >/dev/null; "
+            "sysctl -w net.ipv4.tcp_syn_retries=2 >/dev/null; "
+            "sysctl -w net.ipv4.tcp_notsent_lowat=16384 >/dev/null; "
+            "sysctl -w vm.swappiness=5 >/dev/null; "
+            "sysctl -w vm.dirty_ratio=10 >/dev/null; "
+            "sysctl -w vm.dirty_background_ratio=3 >/dev/null; "
+            "sysctl -w vm.vfs_cache_pressure=50 >/dev/null; "
+            "sysctl -w fs.file-max=2097152 >/dev/null; "
+            "echo never > /sys/kernel/mm/transparent_hugepage/enabled 2>/dev/null; "
+            "echo never > /sys/kernel/mm/transparent_hugepage/defrag 2>/dev/null; "
+            "echo OK",
+            timeout=30, show=False)
+        self.sftp_write('/etc/security/limits.conf',
+            "# YGVPN network tune\n* soft nofile 2097152\n* hard nofile 2097152\nroot soft nofile 2097152\nroot hard nofile 2097152\n")
+        ok_m('Network aggressive tune applied')
+        return True
+
     def step_subscription(self):
         self.run_nohup(
             'printf "3\\n8\\n1\\n\\n\\n" | sb',
