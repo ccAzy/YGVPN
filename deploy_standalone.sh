@@ -287,8 +287,11 @@ fi
 # ────────────────────────────────────────────────────────────────
 # Step 2.8: RSS/RPS 网卡多队列 (from tcp-dashboard)
 step 2.8 "RSS/RPS 网卡多队列均衡"
+set +e  # 暂时关闭严格模式，避免 ethtool/apt 偶发失败导致脚本退出
 if ! command -v ethtool &>/dev/null; then
-    apt-get update -qq && apt-get install -y -qq ethtool 2>/dev/null || yum install -y -qq ethtool 2>/dev/null || true
+    info "安装 ethtool..."
+    timeout 60 apt-get update -qq 2>/dev/null
+    apt-get install -y -qq ethtool 2>/dev/null || yum install -y -qq ethtool 2>/dev/null || true
 fi
 if command -v ethtool &>/dev/null; then
     interfaces=$(ls /sys/class/net 2>/dev/null | grep -vE "lo|docker|veth|br-|any|tung3|sit0|tun|wg")
@@ -309,6 +312,7 @@ if command -v ethtool &>/dev/null; then
 else
     warn "ethtool 不可用，跳过网卡多队列优化"
 fi
+set -e  # 恢复严格模式
 # Step 3: 订阅链接
 # ────────────────────────────────────────────────────────────────
 step 3 "配置订阅链接"
