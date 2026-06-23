@@ -469,56 +469,98 @@ fi  # end TG_SKIP check
 echo ""
 
 # ────────────────────────────────────────────────────────────────
-# Step 9: IP 纯净度检测 (可选)
+# Step 9: 流媒体与 AI 解锁检测 (可选)
 # ────────────────────────────────────────────────────────────────
 echo -e "${Y}──────────────────────────────────────────${N}"
-echo -e "${Y}  可选: VPS IP 纯净度检测${N}"
+echo -e "${Y}  可选: 流媒体 / AI 服务解锁检测${N}"
 echo -e "${Y}──────────────────────────────────────────${N}"
-read -p "  检测 IP 纯净度 (流媒体/AI/机房判断)? [y/N]: " DO_IPCHECK
+read -p "  检测流媒体与AI解锁 (Netflix/Disney+/ChatGPT等)? [y/N]: " DO_IPCHECK
 if [[ "$DO_IPCHECK" =~ ^[Yy]$ ]]; then
-    step 9 "IP 纯净度检测"
+    step 9 "流媒体与AI解锁检测"
     
-    # 通过 ip-api.com 获取基础信息 (免费，无需 key)
-    IPINFO=$(curl -s --max-time 10 "http://ip-api.com/json/${SERVER_IP}?fields=country,regionName,city,isp,org,as,hosting,proxy,query" 2>/dev/null)
+    # ── 基础 IP 信息 (ip-api.com + ipinfo.io 双源) ──
+    IPINFO=$(curl -s --max-time 10 "http://ip-api.com/json/${SERVER_IP}?fields=country,regionName,city,isp,org,as,proxy,hosting" 2>/dev/null)
     if [ -n "$IPINFO" ] && echo "$IPINFO" | grep -q '"status":"success"'; then
         IP_COUNTRY=$(echo "$IPINFO" | grep -oP '"country":"[^"]*"' | cut -d'"' -f4)
-        IP_REGION=$(echo "$IPINFO" | grep -oP '"regionName":"[^"]*"' | cut -d'"' -f4)
         IP_CITY=$(echo "$IPINFO" | grep -oP '"city":"[^"]*"' | cut -d'"' -f4)
         IP_ISP=$(echo "$IPINFO" | grep -oP '"isp":"[^"]*"' | cut -d'"' -f4)
-        IP_ORG=$(echo "$IPINFO" | grep -oP '"org":"[^"]*"' | cut -d'"' -f4)
-        IP_AS=$(echo "$IPINFO" | grep -oP '"as":"[^"]*"' | cut -d'"' -f4)
         IP_HOSTING=$(echo "$IPINFO" | grep -oP '"hosting":(true|false)' | cut -d':' -f2)
-        IP_PROXY=$(echo "$IPINFO" | grep -oP '"proxy":(true|false)' | cut -d':' -f2)
-        
-        echo -e "  ${B}IP 基础信息:${N}"
-        echo -e "    地址: ${G}${SERVER_IP}${N}  |  地区: ${G}${IP_CITY}, ${IP_REGION}, ${IP_COUNTRY}${N}"
-        echo -e "    ISP : ${G}${IP_ISP}${N}"
-        echo -e "    ASN : ${G}${IP_AS}${N}"
-        [ -n "$IP_ORG" ] && echo -e "    Org : ${G}${IP_ORG}${N}"
-        
-        echo -e "  ${B}风险信号:${N}"
-        if [ "$IP_HOSTING" = "true" ] || [ "$IP_PROXY" = "true" ]; then
-            echo -e "    ⚠  ${Y}检测为机房/托管 IP (Hosting: $IP_HOSTING, Proxy: $IP_PROXY)${N}"
-            echo -e "    ⚠  ${Y}流媒体/AI 服务可能受限${N}"
-        else
-            echo -e "    ${G}✓ 未检测到机房/代理标签${N}"
-        fi
+        echo -e "  ${B}📍 位置:${N} ${G}${IP_CITY}, ${IP_COUNTRY}${N}  |  ISP: ${G}${IP_ISP}${N}"
+        [ "$IP_HOSTING" = "true" ] && echo -e "  ${Y}⚠ 检测为机房/托管 IP — 流媒体可能受限${N}"
     else
-        warn "ip-api.com 查询失败，跳过"
+        IP_COUNTRY="未知"
+    fi
+    echo ""
+    
+    # ── 流媒体解锁检测 ──
+    echo -e "  ${B}🎬 流媒体解锁:${N}"
+    
+    # Netflix: 探测一个原创剧集页面 (Safe HTTP probe, 不执行远程脚本)
+    NF_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 8         -H "User-Agent: Mozilla/5.0"         "https://www.netflix.com/title/81280792" 2>/dev/null)
+    case "$NF_CODE" in
+      200|301|302)
+        echo -e "    Netflix       : ${G}✓ 可解锁 (原创)${N}" ;;
+      403)
+        echo -e "    Netflix       : ${Y}⚠ 仅自制剧 (IP受限)${N}" ;;
+      *)
+        echo -e "    Netflix       : ${R}✗ 不可用 (HTTP $NF_CODE)${N}" ;;
+    esac
+    
+    # Disney+
+    DS_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 8         -H "User-Agent: Mozilla/5.0"         "https://www.disneyplus.com" 2>/dev/null)
+    case "$DS_CODE" in
+      200|301|302)
+        echo -e "    Disney+       : ${G}✓ 可解锁${N}" ;;
+      403|451)
+        echo -e "    Disney+       : ${R}✗ 地区限制${N}" ;;
+      *)
+        echo -e "    Disney+       : ${Y}⚠ 待确认 (HTTP $DS_CODE)${N}" ;;
+    esac
+    
+    # YouTube Premium
+    YT_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 8         -H "User-Agent: Mozilla/5.0"         "https://www.youtube.com/premium" 2>/dev/null)
+    if [ "$YT_CODE" = "200" ]; then
+        echo -e "    YouTube Premium: ${G}✓ 可用${N}"
+    else
+        echo -e "    YouTube Premium: ${Y}⚠ 待确认 (HTTP $YT_CODE)${N}"
     fi
     
-    # 通过 ipinfo.io 补充检测 (免费，无需 key，每天 50k 请求)
-    IPINFO2=$(curl -s --max-time 10 "https://ipinfo.io/${SERVER_IP}/json" 2>/dev/null)
-    if [ -n "$IPINFO2" ] && echo "$IPINFO2" | grep -q '"ip"'; then
-        IP2_COUNTRY=$(echo "$IPINFO2" | grep -oP '"country":"[^"]*"' | cut -d'"' -f4)
-        IP2_ORG=$(echo "$IPINFO2" | grep -oP '"org":"[^"]*"' | cut -d'"' -f4)
-        echo -e "  ${B}补充 (ipinfo.io):${N}"
-        echo -e "    国家: ${G}${IP2_COUNTRY}${N}  |  ASN/Org: ${G}${IP2_ORG}${N}"
+    echo ""
+    echo -e "  ${B}🤖 AI 服务可达性:${N}"
+    
+    # ChatGPT / OpenAI
+    OAI_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 8         "https://api.openai.com" 2>/dev/null)
+    if [ "$OAI_CODE" = "200" ] || [ "$OAI_CODE" = "401" ]; then
+        echo -e "    ChatGPT/OpenAI : ${G}✓ 可访问${N}"
+    elif [ "$OAI_CODE" = "403" ]; then
+        echo -e "    ChatGPT/OpenAI : ${R}✗ 被屏蔽 (地区限制)${N}"
+    else
+        echo -e "    ChatGPT/OpenAI : ${Y}⚠ 待确认 (HTTP $OAI_CODE)${N}"
     fi
     
-    ok "IP 纯净度检测完成"
+    # Claude / Anthropic
+    AN_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 8         "https://api.anthropic.com" 2>/dev/null)
+    if [ -n "$AN_CODE" ] && [ "$AN_CODE" != "000" ]; then
+        echo -e "    Claude/Anthropic: ${G}✓ 可访问${N}"
+    else
+        echo -e "    Claude/Anthropic: ${Y}⚠ 待确认${N}"
+    fi
+    
+    # Gemini / Google AI
+    GM_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 8         "https://generativelanguage.googleapis.com" 2>/dev/null)
+    if [ -n "$GM_CODE" ] && [ "$GM_CODE" != "000" ]; then
+        echo -e "    Gemini/Google AI: ${G}✓ 可访问${N}"
+    else
+        echo -e "    Gemini/Google AI: ${Y}⚠ 待确认${N}"
+    fi
+    
+    echo ""
+    echo -e "  ${PURPLE}ℹ 检测基于 HTTP 探测，结果仅供参考。${N}"
+    echo -e "  ${PURPLE}ℹ 精确解锁状态建议运行: bash <(curl -L -s check.unlock.media)${N}"
+    
+    ok "流媒体检测完成"
 else
-    info "跳过 IP 检测"
+    info "跳过检测"
 fi
 
 # ────────────────────────────────────────────────────────────────
