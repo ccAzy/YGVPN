@@ -66,10 +66,7 @@ iptables -t nat -D PREROUTING -p udp --dport 40000:41000 -j DNAT --to-destinatio
 iptables -t nat -D POSTROUTING -m mark --mark 0x40000/0xff0000 -j MASQUERADE 2>/dev/null || true
 # ────────────────────────────────────────────────────────────────
 # Step 1: 安装 sing-box
-MIRROR=""
-for a in "$@"; do [[ "$a" == "--mirror" ]] && MIRROR="https://ghproxy.com/" && break; done
-[ -n "$MIRROR" ] && info "使用 ghproxy 镜像加速"
-# ────────────────────────────────────────────────────────────────
+# MIRROR support (应用于 sing-box / cloudflared 等下载)
 MIRROR=""
 [[ "${1:-}" == "--mirror" ]] || [[ "${2:-}" == "--mirror" ]] && MIRROR="https://ghproxy.com/" && info "使用 ghproxy 镜像加速"
 step 1 "安装 sing-box (约 1-2 分钟)"
@@ -322,6 +319,10 @@ sleep 8
 if [ -f /etc/s-box/subport.log ] && [ -f /etc/s-box/subtoken.log ]; then
     SUBPORT=$(cat /etc/s-box/subport.log)
     SUBTOKEN=$(cat /etc/s-box/subtoken.log)
+    # 安全校验: SUBTOKEN 只允许字母数字下划线横线，防路径穿越
+    if [[ ! "$SUBTOKEN" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+        die "SUBTOKEN 包含非法字符: $SUBTOKEN"
+    fi
     ok "订阅端口: $SUBPORT   Token: $SUBTOKEN"
     mkdir -p "/root/websbox/${SUBTOKEN}"
     cp /etc/s-box/clmi.yaml /etc/s-box/sbox.json /etc/s-box/jhsub.txt "/root/websbox/${SUBTOKEN}/" 2>/dev/null || true
@@ -532,9 +533,9 @@ if [[ "$DO_SPEED" =~ ^[Yy]$ ]]; then
     
     # 策略1: speedtest-cli (python)
     SPEED_OK=false
-    if command -v speedtest-cli &>/dev/null || pip install speedtest-cli -q 2>/dev/null || pip3 install speedtest-cli -q 2>/dev/null; then
+    if command -v speedtest-cli &>/dev/null || timeout 60 pip install speedtest-cli -q 2>/dev/null || timeout 60 pip3 install speedtest-cli -q 2>/dev/null; then
         info "使用 speedtest-cli 测速..."
-        SPEED_RESULT=$(speedtest-cli --simple --timeout 30 2>/dev/null)
+        SPEED_RESULT=$(timeout 30 speedtest-cli --simple 2>/dev/null)
         if [ -n "$SPEED_RESULT" ]; then
             echo -e "${B}  Speedtest 结果:${N}"
             echo "$SPEED_RESULT" | while read line; do echo "    $line"; done
@@ -548,8 +549,7 @@ if [[ "$DO_SPEED" =~ ^[Yy]$ ]]; then
         info "从 cachefly 下载 10MB 测试文件..."
         SPEED_DL=$(curl -s -o /dev/null -w "%{speed_download}" --max-time 15 "http://cachefly.cachefly.net/10mb.test" 2>/dev/null)
         if [ -n "$SPEED_DL" ] && [ "$SPEED_DL" != "0" ]; then
-            # 转换为 Mbps: bytes/sec * 8 / 1000000
-            SPEED_MBPS=$(python -c "print(f'{$SPEED_DL * 8 / 1000000:.1f}')" 2>/dev/null || echo "${SPEED_DL:0:4}")
+            SPEED_MBPS=$(awk "BEGIN {printf "%.1f", $SPEED_DL * 8 / 1000000}" 2>/dev/null || echo "N/A")
             echo -e "  ${B}下载速度:${N} ${G}${SPEED_MBPS} Mbps${N} (10MB 文件, cachefly CDN)"
             SPEED_OK=true
         else
