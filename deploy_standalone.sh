@@ -153,6 +153,11 @@ else
     else
         warn "BBR 未生效 — 试试 modprobe tcp_bbr && sysctl -w net.ipv4.tcp_congestion_control=bbr"
     fi
+    # tcp-dashboard: ECN + BBRv3
+    sysctl -w net.ipv4.tcp_ecn=1 > /dev/null 2>&1 || true
+    sysctl -w net.ipv4.tcp_congestion_control_version=3 > /dev/null 2>&1 || true
+    ok "ECN + BBRv3 已激活"
+
 fi
 
 # ────────────────────────────────────────────────────────────────
@@ -184,7 +189,7 @@ net.ipv4.tcp_fin_timeout = 10
 net.ipv4.tcp_keepalive_time = 120
 net.ipv4.tcp_keepalive_intvl = 15
 net.ipv4.tcp_keepalive_probes = 3
-net.ipv4.tcp_max_syn_backlog = 8192
+net.ipv4.tcp_max_syn_backlog = 16384
 net.ipv4.tcp_max_tw_buckets = 262144
 net.ipv4.tcp_syncookies = 0
 net.ipv4.tcp_synack_retries = 1
@@ -193,10 +198,11 @@ net.ipv4.tcp_sack = 1
 net.ipv4.tcp_timestamps = 1
 net.ipv4.tcp_window_scaling = 1
 net.ipv4.tcp_notsent_lowat = 16384
+net.ipv4.tcp_ecn = 1
 
 # ── 连接队列 ──
-net.core.somaxconn = 16384
-net.core.netdev_max_backlog = 20000
+net.core.somaxconn = 65535
+net.core.netdev_max_backlog = 65535
 net.core.netdev_budget = 2400
 
 # ── 端口范围 ──
@@ -249,6 +255,63 @@ LIMITS
 # 验证
 echo "TCP: $(sysctl -n net.ipv4.tcp_congestion_control)  FastOpen: $(sysctl -n net.ipv4.tcp_fastopen)  BBR idle: $(sysctl -n net.ipv4.tcp_slow_start_after_idle)"
 ok "网络暴力优化完成"
+
+# ────────────────────────────────────────────────────────────────
+# Step 2.6: IPv4 优先解析 (from tcp-dashboard)
+step 2.6 "IPv4 优先解析"
+if [ ! -f /etc/gai.conf ]; then
+    cat > /etc/gai.conf << GAIEOF
+label ::1/128       0
+label ::/0          1
+label 2002::/16     2
+label ::/96         3
+label ::ffff:0:0/96 4
+precedence  ::1/128       50
+precedence  ::/0          40
+precedence  2002::/16     30
+precedence  ::/96         20
+precedence  ::ffff:0:0/96 10
+GAIEOF
+fi
+grep -q "^precedence ::ffff:0:0/96  100" /etc/gai.conf 2>/dev/null || echo "precedence ::ffff:0:0/96  100" >> /etc/gai.conf
+ok "IPv4 优先解析已启用"
+
+# ────────────────────────────────────────────────────────────────
+# Step 2.7: MSS Clamp (from tcp-dashboard)
+step 2.7 "MSS Clamp 智能钳制"
+if command -v iptables &>/dev/null; then
+    iptables -t mangle -D POSTROUTING -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null || true
+    iptables -t mangle -A POSTROUTING -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
+    ok "MSS Clamp 已部署"
+else
+    warn "未找到 iptables，跳过 MSS Clamp"
+fi
+
+# ────────────────────────────────────────────────────────────────
+# Step 2.8: RSS/RPS 网卡多队列 (from tcp-dashboard)
+step 2.8 "RSS/RPS 网卡多队列均衡"
+if ! command -v ethtool &>/dev/null; then
+    apt-get update -qq && apt-get install -y -qq ethtool 2>/dev/null || yum install -y -qq ethtool 2>/dev/null || true
+fi
+if command -v ethtool &>/dev/null; then
+    interfaces=$(ls /sys/class/net 2>/dev/null | grep -vE "lo|docker|veth|br-|any|tung3|sit0|tun|wg")
+    cpu_count=$(nproc)
+    rps_cpus=$(printf "%x" $(((1 << cpu_count) - 1)))
+    for eth in $interfaces; do
+        max_rx=$(ethtool -g "$eth" 2>/dev/null | grep -A5 "Pre-set maximums" | grep "RX:" | awk "{print $2}")
+        ethtool -G "$eth" rx "${max_rx:-1024}" tx "${max_rx:-1024}" 2>/dev/null || true
+        for rps_file in /sys/class/net/$eth/queues/rx-*/rps_cpus; do
+            [ -f "$rps_file" ] && echo "$rps_cpus" > "$rps_file"
+        done
+        for rfc_file in /sys/class/net/$eth/queues/rx-*/rps_flow_cnt; do
+            [ -f "$rfc_file" ] && echo "4096" > "$rfc_file"
+        done
+    done
+    sysctl -w net.core.rps_sock_flow_entries=32768 > /dev/null 2>&1
+    ok "RSS/RPS 已均衡至 ${cpu_count} 核心"
+else
+    warn "ethtool 不可用，跳过网卡多队列优化"
+fi
 # Step 3: 订阅链接
 # ────────────────────────────────────────────────────────────────
 step 3 "配置订阅链接"
