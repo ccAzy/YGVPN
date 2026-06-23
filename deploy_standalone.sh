@@ -295,7 +295,7 @@ if command -v ethtool &>/dev/null; then
     cpu_count=$(nproc)
     rps_cpus=$(printf "%x" $(((1 << cpu_count) - 1)))
     for eth in $interfaces; do
-        max_rx=$(ethtool -g "$eth" 2>/dev/null | grep -A5 "Pre-set maximums" | grep "RX:" | awk "{print $2}")
+        max_rx=$(ethtool -g "$eth" 2>/dev/null | grep -A5 "Pre-set maximums" | grep "RX:" | awk '{print $2}')
         ethtool -G "$eth" rx "${max_rx:-1024}" tx "${max_rx:-1024}" 2>/dev/null || true
         for rps_file in /sys/class/net/$eth/queues/rx-*/rps_cpus; do
             [ -f "$rps_file" ] && echo "$rps_cpus" > "$rps_file"
@@ -591,7 +591,7 @@ if [[ "$DO_SPEED" =~ ^[Yy]$ ]]; then
         info "从 cachefly 下载 10MB 测试文件..."
         SPEED_DL=$(curl -s -o /dev/null -w "%{speed_download}" --max-time 15 "http://cachefly.cachefly.net/10mb.test" 2>/dev/null)
         if [ -n "$SPEED_DL" ] && [ "$SPEED_DL" != "0" ]; then
-            SPEED_MBPS=$(awk "BEGIN {printf "%.1f", $SPEED_DL * 8 / 1000000}" 2>/dev/null || echo "N/A")
+            SPEED_MBPS=$(awk -v speed="$SPEED_DL" 'BEGIN {printf "%.1f", speed * 8 / 1000000}' 2>/dev/null || echo "N/A")
             echo -e "  ${B}下载速度:${N} ${G}${SPEED_MBPS} Mbps${N} (10MB 文件, cachefly CDN)"
             SPEED_OK=true
         else
